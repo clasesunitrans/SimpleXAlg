@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simplificador de Expresiones Algebraicas</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- MathJax for rendering LaTeX -->
+    <script>
+    MathJax = {
+        tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        },
+        svg: {
+            fontCache: 'global'
+        }
+    };
+    </script>
+    <script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js">
+    </script>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column; /* Align children vertically */
+        }
+        main {
+            flex-grow: 1; /* Allows main content to grow and push footer down */
+        }
+        /* Custom styles for loading spinner */
+        .loader {
+            border-top-color: #3498db;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+
+        @-webkit-keyframes spinner {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <main class="flex items-center justify-center p-4">
+        <div class="w-full max-w-3xl bg-orange-50 rounded-xl shadow-lg p-6 md:p-8">
+            
+            <!-- Header Section -->
+            <div class="text-center border-b pb-4 mb-6">
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Simplificador Algebraico</h1>
+                <p class="text-gray-600 mt-2">Soy tu experto en matemáticas. Ingresa una expresión para comenzar.</p>
+            </div>
+    
+            <!-- Input Section -->
+            <div class="mb-6">
+                <label for="expression-input" class="block text-lg font-medium text-gray-700 mb-2">Expresión Algebraica:</label>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <input type="text" id="expression-input" placeholder="(x^2 - 4) / (x - 2)" class="flex-grow w-full px-4 py-3 text-lg bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out">
+                    <button id="simplify-button" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition duration-150 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Simplificar
+                    </button>
+                </div>
+            </div>
+    
+            <!-- Results Section -->
+            <div id="results-container" class="space-y-8">
+                <!-- This area will be populated with results by JavaScript -->
+            </div>
+            
+            <!-- Initial Message / Placeholder -->
+            <div id="initial-message" class="text-center text-gray-500 p-8 border-2 border-dashed rounded-lg">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-6m-3 6h.01M9 17h.01M9 14h.01M12 14h.01M15 14h.01M12 17h.01M15 17h.01M15 11h.01M12 11h.01M9 11h.01M4 7v10a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2z" />
+                </svg>
+                <h3 class="mt-2 text-lg font-medium text-gray-900">Esperando una expresión</h3>
+                <p class="mt-1 text-sm text-gray-500">Los resultados de la simplificación aparecerán aquí.</p>
+            </div>
+            
+            <!-- Loading Indicator -->
+            <div id="loading-indicator" class="hidden flex-col items-center justify-center text-center text-gray-500 p-8">
+                <div class="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-24 w-24 mb-4"></div>
+                <h2 class="text-xl font-semibold text-gray-700">Analizando...</h2>
+                <p>Realizando la magia matemática. Por favor, espera.</p>
+            </div>
+    
+            <!-- Error Message -->
+            <div id="error-message" class="hidden text-center text-red-700 bg-red-100 p-4 rounded-lg">
+                 <!-- Error content will be set here -->
+            </div>
+    
+        </div>
+    </main>
+
+    <!-- Copyright Footer -->
+    <footer class="text-center py-4">
+        <p class="text-sm text-gray-600">
+            &copy; <span id="current-year"></span> fmartinezb@gmail.com. Todos los derechos reservados.
+        </p>
+    </footer>
+
+    <script>
+        const simplifyButton = document.getElementById('simplify-button');
+        const expressionInput = document.getElementById('expression-input');
+        const resultsContainer = document.getElementById('results-container');
+        const initialMessage = document.getElementById('initial-message');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const errorMessage = document.getElementById('error-message');
+
+        // Main function to handle the simplification process
+        simplifyButton.addEventListener('click', async () => {
+            const expression = expressionInput.value.trim();
+            if (!expression) {
+                showError('Por favor, ingresa una expresión algebraica.');
+                return;
+            }
+
+            // Reset UI
+            resultsContainer.innerHTML = '';
+            initialMessage.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            loadingIndicator.classList.remove('hidden');
+            loadingIndicator.classList.add('flex');
+            
+            try {
+                // Construct the prompt for the Gemini API
+                const prompt = `
+                    You are an expert math tutor for university students. Your task is to simplify algebraic expressions.
+                    Your response MUST be a single JSON object, without any markdown formatting.
+                    
+                    Analyze the following user-provided expression: "${expression}"
+
+                    Follow these rules strictly:
+                    1. First, determine if the input is a valid algebraic expression. If it is not, set 'isAlgebraic' to false and provide a reason in 'simplifiedExpression'. Do not proceed further.
+                    2. If it is a valid algebraic expression, set 'isAlgebraic' to true.
+                    3. For rational expressions, the very first step must be to identify and explain any restrictions on the variables that would make the denominator zero. Populate the 'restrictions' array with these explanations.
+                    4. Simplify the expression step-by-step. Explain each operation clearly (e.g., 'Factor the numerator using difference of squares', 'Cancel out the common factor (x-2)').
+                    5. Use appropriate factoring methods (common factor, grouping, quadratic trinomials, difference of squares) and mention which one you are using.
+                    6. The final expression must be in its simplest form. For polynomials like trinomials, the fully factored form is considered the simplest form. For rational expressions, the simplest form is after canceling all common factors.
+                    7. Format all mathematical notation using LaTeX.
+                    8. Populate the 'steps' array with each step of the simplification. Each step should have an 'explanation' (in Spanish) and the resulting 'expression' (in LaTeX).
+                    9. Populate the 'simplifiedExpression' field with the final simplified expression in LaTeX format. If the expression was factored, this must be its final factored form.
+                `;
+
+                // Define the JSON schema for the structured response
+                const schema = {
+                    type: "OBJECT",
+                    properties: {
+                        "isAlgebraic": { "type": "BOOLEAN" },
+                        "simplifiedExpression": { "type": "STRING" },
+                        "restrictions": {
+                            "type": "ARRAY",
+                            "items": { "type": "STRING" }
+                        },
+                        "steps": {
+                            "type": "ARRAY",
+                            "items": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "explanation": { "type": "STRING" },
+                                    "expression": { "type": "STRING" }
+                                },
+                                "required": ["explanation", "expression"]
+                            }
+                        }
+                    },
+                    required: ["isAlgebraic", "simplifiedExpression", "restrictions", "steps"]
+                };
+
+                // Call the Gemini API
+                const result = await callGeminiAPI(prompt, schema);
+                
+                // Process and display the result
+                displayResults(result);
+
+            } catch (error) {
+                console.error('API Call failed:', error);
+                // The showError function now receives the specific error message
+                showError(error.message);
+            } finally {
+                // Hide loading indicator
+                loadingIndicator.classList.add('hidden');
+                loadingIndicator.classList.remove('flex');
+            }
+        });
+
+        // Function to call the Gemini API with improved error handling
+        async function callGeminiAPI(prompt, schema) {
+            const apiKey = "AIzaSyANW3XRRlTTo5Mv1d7rFCygTR_Yt2WdlHY"; // Remember to add your API Key here to run outside of this environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: schema
+                }
+            };
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            // If the response is not OK, try to parse the error and throw it
+            if (!response.ok) {
+                let errorMsg = `La solicitud a la API falló con estado ${response.status}.`;
+                try {
+                    const errorData = await response.json();
+                    if (errorData && errorData.error && errorData.error.message) {
+                        // Use the specific error message from the API
+                        errorMsg = errorData.error.message;
+                    }
+                } catch(e) {
+                    console.error("Could not parse error response body:", e);
+                }
+                throw new Error(errorMsg);
+            }
+
+            const result = await response.json();
+            
+            // Check for valid response structure
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+                const jsonText = result.candidates[0].content.parts[0].text;
+                try {
+                    return JSON.parse(jsonText);
+                } catch (e) {
+                    console.error("Failed to parse JSON from API response:", jsonText);
+                    throw new Error("La respuesta del modelo no pudo ser interpretada. No es un JSON válido.");
+                }
+            } else {
+                 console.error("Unexpected API response structure:", result);
+                 if (result.promptFeedback && result.promptFeedback.blockReason) {
+                     throw new Error(`La solicitud fue bloqueada por seguridad: ${result.promptFeedback.blockReason}`);
+                 }
+                 throw new Error("Respuesta inválida de la API. La estructura del contenido no es la esperada.");
+            }
+        }
+        
+        // Function to display results in the UI
+        function displayResults(data) {
+            if (!data.isAlgebraic) {
+                showError('No estoy diseñado para contestar ese tipo de preguntas. Por favor, introduce una expresión algebraica válida.');
+                return;
+            }
+
+            // 1. Final Simplified Expression
+            const finalResultHTML = `
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-2">Expresión Simplificada Final</h2>
+                    <div class="text-2xl md:text-3xl text-blue-800 font-mono py-2">$$${data.simplifiedExpression}$$</div>
+                </div>
+            `;
+            resultsContainer.insertAdjacentHTML('beforeend', finalResultHTML);
+
+            // 2. Restrictions
+            if (data.restrictions && data.restrictions.length > 0) {
+                const restrictionsHTML = `
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-800 mb-2">Restricciones</h2>
+                        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-r-lg">
+                            <p class="text-gray-700 mb-2">Para evitar la división por cero, debemos excluir los valores de las variables que anulan el denominador:</p>
+                            <ul class="list-disc list-inside space-y-2 text-yellow-800">
+                                ${data.restrictions.map(r => `<li>${r}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>`;
+                resultsContainer.insertAdjacentHTML('beforeend', restrictionsHTML);
+            }
+
+            // 3. Step-by-step process
+            if (data.steps && data.steps.length > 0) {
+                const stepsHTML = `
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-800 mb-3">Procedimiento Paso a Paso</h2>
+                        <ol class="relative border-l border-gray-200 space-y-6 ml-2">
+                            ${data.steps.map((step, index) => `
+                                <li class="ml-6">
+                                    <span class="absolute flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full -left-4 ring-8 ring-white">
+                                        <span class="font-bold text-blue-800">${index + 1}</span>
+                                    </span>
+                                    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                      <p class="text-base font-normal text-gray-600 mb-2">${step.explanation}</p>
+                                      <div class="text-xl text-gray-800 font-mono">$$${step.expression}$$</div>
+                                    </div>
+                                </li>
+                            `).join('')}
+                        </ol>
+                    </div>`;
+                 resultsContainer.insertAdjacentHTML('beforeend', stepsHTML);
+            }
+
+            // Re-render MathJax for the new content
+            if (window.MathJax) {
+                MathJax.typesetPromise([resultsContainer]);
+            }
+        }
+
+        function showError(message) {
+            // Display the specific error message provided
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+            resultsContainer.innerHTML = '';
+            initialMessage.classList.add('hidden');
+        }
+
+        // Allow pressing Enter to submit
+        expressionInput.addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                simplifyButton.click();
+            }
+        });
+
+        // Set the current year in the footer
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
+    </script>
+</body>
+</html>
